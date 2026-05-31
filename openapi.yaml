@@ -1,0 +1,330 @@
+openapi: 3.0.3
+info:
+  title: Team Task Tracker API
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+security:
+  - bearerAuth: []
+paths:
+  /:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: API is running
+  /api/auth/register:
+    post:
+      summary: Register a user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered
+        "400":
+          $ref: "#/components/responses/Error"
+  /api/auth/login:
+    post:
+      summary: Login and receive access and refresh tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Tokens issued
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/auth/refresh:
+    post:
+      summary: Rotate refresh token and receive new tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: Tokens rotated
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/users:
+    get:
+      summary: List organization users
+      description: Admin only.
+      responses:
+        "200":
+          description: Users returned
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/users/{id}/role:
+    patch:
+      summary: Update a user's role
+      description: Admin only.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum:
+                    - ADMIN
+                    - MANAGER
+                    - MEMBER
+      responses:
+        "200":
+          description: Role updated
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/users/{id}:
+    delete:
+      summary: Delete a user
+      description: Admin only.
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User deleted
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/tasks:
+    get:
+      summary: List tasks with pagination and filters
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+        - name: priority
+          in: query
+          schema:
+            $ref: "#/components/schemas/TaskPriority"
+        - name: assignee
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tasks returned
+        "401":
+          $ref: "#/components/responses/Error"
+    post:
+      summary: Create a task
+      description: Admin and manager only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskWrite"
+      responses:
+        "201":
+          description: Task created
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/tasks/{id}:
+    get:
+      summary: Get task by id
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Task returned
+        "404":
+          $ref: "#/components/responses/Error"
+    put:
+      summary: Update task fields except status
+      description: Admin and manager only.
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Task updated
+        "403":
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete a task
+      description: Admin and manager only.
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "200":
+          description: Task deleted
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/tasks/{id}/status:
+    patch:
+      summary: Advance task status
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  $ref: "#/components/schemas/TaskStatus"
+      responses:
+        "200":
+          description: Task status updated
+        "400":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    TaskId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+        - organizationName
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - MANAGER
+            - MEMBER
+        organizationName:
+          type: string
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    TaskPriority:
+      type: string
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+    TaskStatus:
+      type: string
+      enum:
+        - TODO
+        - IN_PROGRESS
+        - IN_REVIEW
+        - DONE
+        - BLOCKED
+    TaskWrite:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assignee:
+          type: string
+        due_date:
+          type: string
+          format: date-time
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assignee:
+          type: string
+        due_date:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      properties:
+        status:
+          type: integer
+        code:
+          type: string
+        message:
+          type: string
